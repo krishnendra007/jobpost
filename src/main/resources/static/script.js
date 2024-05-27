@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const searchForm = document.getElementById('searchForm');
     const searchText = document.getElementById('searchText');
     const addPostForm = document.getElementById('addPostForm');
@@ -8,68 +8,76 @@ document.addEventListener('DOMContentLoaded', function() {
     const postTechs = document.getElementById('postTechs');
     const postsContainer = document.getElementById('postsContainer');
 
-    searchForm.addEventListener('submit', function(event) {
+    searchForm.addEventListener('submit', async function(event) {
         event.preventDefault();
         const searchTerm = searchText.value.trim();
         if (searchTerm !== '') {
-            searchPosts(searchTerm);
+            try {
+                const posts = await searchPosts(searchTerm);
+                displayPosts(posts);
+            } catch (error) {
+                console.error('Error fetching posts:', error);
+            }
         }
     });
 
-    addPostForm.addEventListener('submit', function(event) {
+    addPostForm.addEventListener('submit', async function(event) {
         event.preventDefault();
         const title = postTitle.value.trim();
         const content = postContent.value.trim();
         const exp = parseInt(postExp.value);
         const techs = postTechs.value.split(',').map(tech => tech.trim());
         if (title !== '' && content !== '' && !isNaN(exp) && techs.length > 0) {
-            const newPost = {
-                profile: title,
-                desc: content,
-                exp: exp,
-                techs: techs
-            };
-            addPost(newPost);
-            postTitle.value = '';
-            postContent.value = '';
-            postExp.value = '';
-            postTechs.value = '';
+            try {
+                const newPost = {
+                    profile: title,
+                    desc: content,
+                    exp: exp,
+                    techs: techs
+                };
+                const addedPost = await addPost(newPost);
+                displayPost(addedPost);
+                // Clear form fields
+                postTitle.value = '';
+                postContent.value = '';
+                postExp.value = '';
+                postTechs.value = '';
+            } catch (error) {
+                console.error('Error adding post:', error);
+            }
         } else {
             alert('Please fill out all fields correctly.');
         }
     });
 
-    function searchPosts(text) {
-        fetch(`/posts/${text}`)
-            .then(response => response.json())
-            .then(posts => {
-                displayPosts(posts);
-            })
-            .catch(error => console.error('Error fetching posts:', error));
+    async function searchPosts(text) {
+        const response = await fetch(`/posts/${text}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch posts');
+        }
+        return await response.json();
     }
 
-    function getAllPosts() {
-        fetch('/posts')
-            .then(response => response.json())
-            .then(posts => {
-                displayPosts(posts);
-            })
-            .catch(error => console.error('Error fetching posts:', error));
+    async function getAllPosts() {
+        const response = await fetch('/posts');
+        if (!response.ok) {
+            throw new Error('Failed to fetch posts');
+        }
+        return await response.json();
     }
 
-    function addPost(post) {
-        fetch('/post', {
+    async function addPost(post) {
+        const response = await fetch('/post', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(post)
-        })
-        .then(response => response.json())
-        .then(addedPost => {
-            displayPost(addedPost);
-        })
-        .catch(error => console.error('Error adding post:', error));
+        });
+        if (!response.ok) {
+            throw new Error('Failed to add post');
+        }
+        return await response.json();
     }
 
     function displayPosts(posts) {
@@ -77,9 +85,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (posts.length === 0) {
             postsContainer.innerHTML = '<p>No posts found.</p>';
         } else {
-            posts.forEach(post => {
-                displayPost(post);
-            });
+            for (let i = 0; i < posts.length; i++) {
+                displayPost(posts[i]);
+            }
         }
     }
 
@@ -95,6 +103,11 @@ document.addEventListener('DOMContentLoaded', function() {
         postsContainer.appendChild(postElement);
     }
 
-    // Initial load
-    getAllPosts();
+    // Display all posts when the page loads
+    try {
+        const allPosts = await getAllPosts();
+        displayPosts(allPosts);
+    } catch (error) {
+        console.error('Error fetching posts:', error);
+    }
 });
